@@ -1,0 +1,9 @@
+package main
+
+import (
+	"github.com/went/cmd"
+)
+
+func main() {
+	cmd.Execute()
+}

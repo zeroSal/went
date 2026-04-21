@@ -1,0 +1,11 @@
+package module
+
+import (
+	"go.uber.org/fx"
+)
+
+func LoggerModule() fx.Option {
+	return fx.Module(
+		"logger",
+	)
+}
