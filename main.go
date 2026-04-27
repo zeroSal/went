@@ -44,13 +44,13 @@ func main() {
 
 	run := func(command command.Interface) {
 		if err := kernel.Run(command.Invoke()); err != nil {
-			clio.Fatal(err.Error())
+			clio.Fatal("%s", err.Error())
 			os.Exit(1)
 		}
 	}
 
 	if err := command.Mount(registry.Command.All(), root, run).Execute(); err != nil {
-		clio.Fatal("Error mounting commands: " + err.Error())
+		clio.Fatal("Error mounting commands: %s", err.Error())
 		os.Exit(2)
 	}
 }

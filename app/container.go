@@ -12,4 +12,6 @@ var Container = fx.Module(
 	fx.Provide(module.AuditLoggerProvider),
 	fx.Provide(module.ErrorLoggerProvider),
 	fx.Provide(config.LoadEnv),
+	fx.Provide(module.HTTPClientProvider),
+	fx.Provide(module.GitHubClientProvider),
 )

@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/spf13/cobra v1.10.2
-	github.com/zeroSal/went-clio v1.2.0
+	github.com/zeroSal/went-clio v1.3.0
 	github.com/zeroSal/went-command v1.3.0
 	github.com/zeroSal/went-logger v1.0.0
 	go.uber.org/fx v1.24.0
