@@ -59,6 +59,7 @@ var notEmpty = func(s string) error {
 }
 
 func (c *Init) run(
+	ctx context.Context,
 	console *clio.Clio,
 	github github.ClientInterface,
 ) error {
@@ -75,7 +76,7 @@ func (c *Init) run(
 
 	for {
 		err := c.initProject(
-			context.Background(),
+			ctx,
 			github,
 			template,
 			projectName,
