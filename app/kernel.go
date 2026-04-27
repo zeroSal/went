@@ -10,9 +10,9 @@ import (
 )
 
 type Kernel struct {
-	EmbedFS    embed.FS
-	Specs      *Specs
-	Clio       *clio.Clio
+	EmbedFS embed.FS
+	Specs   *Specs
+	Clio    *clio.Clio
 }
 
 func NewKernel(

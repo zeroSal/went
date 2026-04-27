@@ -15,9 +15,9 @@ func LoadEnv() *Env {
 	}
 
 	home, err := os.UserHomeDir()
-    if err != nil {
-        home = "~"
-    }
+	if err != nil {
+		home = "~"
+	}
 
 	env.VarDir = fmt.Sprintf("%s/.went/var", home)
 

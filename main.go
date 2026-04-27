@@ -37,9 +37,9 @@ func main() {
 
 	root := &cobra.Command{
 		Version: fmt.Sprintf("%s-%s (%s)", Version, Channel, BuildDate),
-		Use:   "went",
-		Short: "Go project wireframe following best practices",
-		Long:  "Go project wireframe following best practices.",
+		Use:     "went",
+		Short:   "Go project wireframe following best practices",
+		Long:    "Go project wireframe following best practices.",
 	}
 
 	run := func(command command.Interface) {

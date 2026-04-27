@@ -19,6 +19,7 @@ import (
 )
 
 var _ command.Interface = (*Init)(nil)
+
 type Init struct {
 	command.Base
 }

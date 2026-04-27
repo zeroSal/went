@@ -17,13 +17,13 @@ var _ ClientInterface = (*Client)(nil)
 
 type Client struct {
 	httpClient http.ClientInterface
-	baseURL  string
+	baseURL    string
 }
 
 func NewClient(httpClient http.ClientInterface) *Client {
 	return &Client{
 		httpClient: httpClient,
-		baseURL:   baseURL,
+		baseURL:    baseURL,
 	}
 }
 
