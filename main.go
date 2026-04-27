@@ -2,32 +2,55 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"os"
 	"went/app"
-	"went/cmd"
+	_ "went/cmd"
+	"went/registry"
+
+	"github.com/zeroSal/went-clio/clio"
+	"github.com/zeroSal/went-command/command"
+
+	"github.com/spf13/cobra"
 )
 
 var Version = ""
 var Channel = ""
 var BuildDate = ""
 
-//go:embed embed/*
+//go:embed res/*
 var EmbedFS embed.FS
 
 func main() {
-	buildSpecs := app.NewBuildSpecs(Version, Channel, BuildDate)
+	clio := clio.NewClio()
 
-	rootCmd := cmd.NewRootCmd(
-		"went",
-		"The Go scaffolding CLI",
-		"A CLI tool to scaffold Go projects with best practices.",
-		buildSpecs,
-	)
+	data, err := EmbedFS.ReadFile("res/banner.template")
+	if err != nil {
+		clio.Error("Error loading the banner template.")
+		os.Exit(3)
+	}
 
-	initCmd := cmd.NewInitCmd(EmbedFS, buildSpecs).Command()
+	specs := app.NewSpecs(Version, Channel, BuildDate)
+	clio.SetBanner(string(data), Version, Channel, BuildDate)
 
-	rootCmd.AddCommand(initCmd)
+	kernel := app.NewKernel(EmbedFS, specs, clio)
 
-	if err := rootCmd.Execute(); err != nil {
-		panic(err)
+	root := &cobra.Command{
+		Version: fmt.Sprintf("%s-%s (%s)", Version, Channel, BuildDate),
+		Use:   "went",
+		Short: "Go project wireframe following best practices",
+		Long:  "Go project wireframe following best practices.",
+	}
+
+	run := func(command command.Interface) {
+		if err := kernel.Run(command.Invoke()); err != nil {
+			clio.Fatal(err.Error())
+			os.Exit(1)
+		}
+	}
+
+	if err := command.Mount(registry.Command.All(), root, run).Execute(); err != nil {
+		clio.Fatal("Error mounting commands: " + err.Error())
+		os.Exit(2)
 	}
 }

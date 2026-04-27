@@ -1,21 +1,124 @@
 ## Project Structure
 
-- `main.go` — Entry point, creates root `cobra.Command`
-- `cmd/` — Cobra commands: one file per command (`init.go`, `root.go`)
-- `app/kernel.go` — DI kernel definition (`fx.Module`)
-- `app/bootstrap/initialization.go` — The initialization function
-- `app/bootstrap/module/` — DI providers: one file per domain (`logger.go`, `example.go`)
+- `main.go` — Entry point, creates root `cobra.Command`, uses embed.FS for templates/static
+- `cmd/` — Command implementations using custom `went-command` pattern (`serve.go`)
+- `app/kernel.go` — DI kernel that creates and runs the fx.App
+- `app/container.go` — FX module container with DI providers
+- `app/build_specs.go` — Build metadata (version, channel, build date)
+- `app/bootstrap/` — Bootstrap providers:
+  - `init.go` — Initialization function, validates env, creates working dirs, initializes loggers
+  - `module/loggers.go` — Logger providers (AuditLogger, ErrorLogger)
+  - `module/iris.go` — Iris web framework provider (uses Django template engine, enables hot-reload in dev)
 - `app/config/env.go` — Env struct with `Load()` and `Validate()` methods
-- `app/service/` — Internal services, organized by domain (see below)
-- `app/model/` — Data models, organized by domain (see below)
+- `templates/` — Embedded template files (banner.template)
+- `static/` — Embedded static files
+- `.env.dist` — Environment template file (must be copied to .env and customized)
 
 ---
 
-### Layer conventions
+## Template Engine
+
+Iris uses the Django template engine (`.html.django` extension). Static files are served from the embedded filesystem at `/static`.
+
+---
+
+## Environment Configuration
+
+Copy `.env.dist` to `.env` and configure:
+
+| Variable  | Default    | Description                      |
+|-----------|------------|----------------------------------|
+| `ENV`     | `dev`      | Environment (`dev` or `prod`)    |
+| `VAR_DIR` | `var`      | Base directory for runtime files |
+| `HOST`    | `127.0.0.1`| Server bind address              |
+| `PORT`    | `3096`     | Server port                      |
+
+The `Validate()` method enforces `ENV` as `dev` or `prod`, and port range `1-65535`.
+
+---
+
+## Tech Stack
+
+- **Iris v12** — Web framework
+- **Cobra** — Root command framework (integrated via `went-command`)
+- **Uber FX** — Dependency injection container
+- **went-clio** — CLI output formatting (console input/output)
+- **went-logger** — File logging (AuditLogger, ErrorLogger)
+- **went-command** — Custom command pattern
+- **air** — Auto-reload during development
+- **golangci-lint v2** — Linter aggregator
+
+---
+
+## Patterns
+
+### Command Pattern
+
+Commands implement `command.Interface` and use `GetHeader()` to define cobra metadata:
+
+```go
+var _ command.Interface = (*ServeCmd)(nil)
+type ServeCmd struct {
+    command.Base
+}
+
+func NewServeCmd() command.Interface { ... }
+
+func (c *ServeCmd) GetHeader() command.Header {
+    return command.Header{
+        Use:   "serve",
+        Short: "Run the web server",
+        Long:  "...",
+    }
+}
+
+func (c *ServeCmd) Invoke() any {
+    return c.run
+}
+
+func (c *ServeCmd) run(...) error { ... }
+```
+
+### Kernel Pattern
+
+The `Kernel` wraps fx.App creation and execution:
+
+```go
+kernel := app.NewKernel(EmbedFS, specs, clio)
+kernel.Run(instance.Invoke())
+```
+
+### FX Modules
+
+Providers in `container.go` wrap types into FX-injectable named types:
+
+```go
+var Container = fx.Module(
+    "container",
+    fx.Provide(module.IrisProvider),
+    fx.Provide(module.AuditLoggerProvider),
+    fx.Provide(module.ErrorLoggerProvider),
+    fx.Provide(config.LoadEnv),
+)
+```
+
+### Env Config
+
+`config/env.go` defines a single typed struct with `Load()` (reads from environment) and `Validate()` methods. It uses `godotenv` to load `.env` file. No raw `os.Getenv` calls outside this file.
+
+### Runtime Directories
+
+The bootstrap initialization creates the following directories at startup:
+- `var/logs/` — Log files (audit.log, error.log)
+- `var/uploads/` — Uploaded files
+
+---
+
+## Layer Conventions
 
 Both `app/service/` and `app/model/` follow the same rule: **one package per domain**. The package name defines the domain context; each filename describes the type of object it contains, never repeating the domain name.
 
-#### `app/service/`
+### `app/service/`
 
 ```
 app/service/
@@ -29,7 +132,7 @@ app/service/
 
 Typical filenames: `client.go`, `client_interface.go`, `loader.go`, `resolver.go`, `cache.go`, `parser.go`
 
-#### `app/model/`
+### `app/model/`
 
 ```
 app/model/
@@ -44,91 +147,33 @@ app/model/
 
 Typical filenames: `entity.go`, `dto.go`, `request.go`, `response.go`, `enum.go`, `event.go`
 
----
-
 > **Why:** the domain lives in the package, the role lives in the filename.
 > `github/github_client.go` ❌ → `github/client.go` ✅
 > Imports stay self-documenting: `domain2.Client`, `domain2.Loader`, `release.Entity`.
 
 ---
 
-## Tech Stack
-
-- **Cobra** — CLI framework, command routing and flag parsing
-- **Uber FX** — Dependency injection container
-- **golangci-lint v2** — Linter aggregator
-
----
-
-## Patterns
-
-#### Interface + Implementation
-
-Each service domain that requires abstraction (e.g. for mocking or DI) splits into two files:
-
-- `service/x/x_interface.go` — defines the interface
-- `service/x/x.go` — provides the concrete implementation
-
-Always include a compile-time interface check in the implementation file:
-
-```go
-var _ InterfaceType = (*ImplementationType)(nil)
-```
-
-#### FX Modules
-
-Providers in `bootstrap/module/` wrap concrete types into FX-injectable named types: `AppXxx` or `XxxClient`. This keeps the DI graph explicit and avoids ambiguity when multiple values share the same underlying type.
-
-#### Client Pattern
-
-External service clients live in `service/<domain>/client.go` and are named `Client` within the package. Consumed as `domain.Client` at the call site.
-
-#### Env Config
-
-`config/env.go` defines a single typed struct. It exposes a `Load()` method (reads from environment) and validation helpers. No raw `os.Getenv` calls outside this file.
-
-#### Cobra Commands
-
-Each command follows the `XxxCmd` struct pattern:
-
-```go
-type XxxCmd struct { ... }
-
-func NewXxxCmd(...) *XxxCmd { ... }
-func (c *XxxCmd) Command() *cobra.Command { ... }
-func (c *XxxCmd) run(...) error { ... }
-func (c *XxxCmd) execute(...) error { ... }
-```
-
----
-
-## Lint
-
-- Config file: `.golangci.yml` in v2 format
-- `staticcheck` enabled with exclusions: `-ST1005` (error string casing), `-ST1000` (package comments)
-
----
-
 ## Code Conventions
 
-#### One object per file
+### One object per file
 
 Each file defines exactly one primary object (struct or interface). The filename must match the role of that object, as described in the layer conventions above.
 
-#### Constructor
+### Constructor
 
 Every object must have a constructor named `New<ObjectName>`. Its parameters are exclusively the dependencies to be injected. **No logic, initialization, or side effects of any kind inside the constructor** — it only assigns fields.
 
 ```go
-func NewClient(logger *zap.Logger, cfg config.Env) *Client {
-    return &Client{
-        logger: logger,
-        cfg:    cfg,
+func NewKernel(embedFS embed.FS, specs *Specs, clio *clio.Clio) *Kernel {
+    return &Kernel{
+        embedFS,
+        specs,
+        clio,
     }
 }
 ```
 
-#### Function naming
+### Function naming
 
 Function and method names must always be a **verb** or a **verbNoun** (`load`, `fetchReleases`, `parseResponse`). Names must be self-explanatory in isolation.
 
@@ -146,8 +191,16 @@ func (c *ReleaseClient) fetchRelease() { ... } // ❌ redundant
 
 ---
 
+## Lint
+
+- Config file: `.golangci.yml` in v2 format
+- `staticcheck` enabled with exclusions: `-ST1000` (package comments)
+
+---
+
 ## Build
 
 - All builds use vendor mode: `GOFLAGS="-mod=vendor"`
 - Production builds require `VERSION` and `CHANNEL` env vars to be set
 - Build artifacts are output to `build/`
+- Use `make build-dev`, `make build-staging`, or `make build` (production)

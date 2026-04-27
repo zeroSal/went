@@ -1,31 +1,31 @@
 package app
 
-type BuildSpecs struct {
+type Specs struct {
 	version   string
 	channel   string
 	buildDate string
 }
 
-func NewBuildSpecs(
+func NewSpecs(
 	version string,
 	channel string,
 	buildDate string,
-) *BuildSpecs {
-	return &BuildSpecs{
+) *Specs {
+	return &Specs{
 		version:   version,
 		channel:   channel,
 		buildDate: buildDate,
 	}
 }
 
-func (specs *BuildSpecs) GetVersion() string {
+func (specs *Specs) GetVersion() string {
 	return specs.version
 }
 
-func (specs *BuildSpecs) GetChannel() string {
+func (specs *Specs) GetChannel() string {
 	return specs.channel
 }
 
-func (specs *BuildSpecs) GetBuildDate() string {
+func (specs *Specs) GetBuildDate() string {
 	return specs.buildDate
 }
